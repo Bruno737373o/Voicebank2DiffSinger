@@ -64,19 +64,17 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path src/ckpt
           New-Item -ItemType Directory -Force -Path src/dictionaries
+          $ProgressPreference = 'SilentlyContinue'
           
-          $ProgressPreference = 'SilentlyContinue' # Acelera o download ocultando a barra de progresso
-          
-          Write-Host "Baixando checkpoint do SOFA..."
+          Write-Host "Baixando modelos SOFA..."
           curl.exe -L "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/step.100000.ckpt" -o "src/ckpt/step.100000.ckpt"
-          
-          Write-Host "Baixando dicionario japonês..."
           curl.exe -L "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/japanese-extension-sofa.txt" -o "src/dictionaries/japanese-extension-sofa.txt"
 
       - name: Run Conversion
         shell: pwsh
         run: |
-          python src/main.py "Kasane Teto SV"
+          # O comando "echo 1" envia a resposta automaticamente para o prompt do script
+          echo "1" | python src/main.py "Kasane Teto SV"
 
       - name: Upload Dataset
         uses: actions/upload-artifact@v4
@@ -84,4 +82,3 @@ jobs:
           name: diffsinger-dataset-output
           path: src/outputs/
           retention-days: 7
-          
