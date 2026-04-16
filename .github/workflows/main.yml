@@ -59,7 +59,7 @@ jobs:
                   f.write(" ".join(syllables))
           print("Sucesso: Arquivos .txt gerados.")
 
-      - name: Download SOFA Models (Robust Method)
+      - name: Download SOFA Models (OpenVPI Links)
         shell: python
         run: |
           import requests
@@ -68,20 +68,22 @@ jobs:
           def download_file(url, dest):
               print(f"Baixando: {url}")
               os.makedirs(os.path.dirname(dest), exist_ok=True)
+              # O parâmetro allow_redirects=True é crucial para o GitHub
               r = requests.get(url, allow_redirects=True, stream=True)
               if r.status_code == 200:
                   with open(dest, 'wb') as f:
                       for chunk in r.iter_content(chunk_size=8192):
                           f.write(chunk)
-                  print(f"Salvo em: {dest} ({os.path.getsize(dest)} bytes)")
+                  print(f"Salvo: {dest} ({os.path.getsize(dest)} bytes)")
               else:
-                  print(f"Erro ao baixar {url}: Status {r.status_code}")
+                  print(f"Erro {r.status_code} ao baixar de: {url}")
                   exit(1)
 
-          # Links de backup e oficiais
-          ckpt_url = "https://github.com/qiuqiao/SOFA/releases/download/v0.0.1/step.100000.ckpt"
-          dict_url = "https://raw.githubusercontent.com/qiuqiao/SOFA/main/dictionaries/japanese-extension-sofa.txt"
+          # Novos links oficiais e estáveis
+          ckpt_url = "https://github.com/openvpi/MakeDiffSinger/releases/download/v0.0.1/base.ckpt"
+          dict_url = "https://raw.githubusercontent.com/openvpi/MakeDiffSinger/main/dictionaries/kana_jp.txt"
 
+          # O script espera o nome step.100000.ckpt, então vamos renomear o base.ckpt no download
           download_file(ckpt_url, "src/ckpt/step.100000.ckpt")
           download_file(dict_url, "src/dictionaries/japanese-extension-sofa.txt")
 
@@ -97,4 +99,4 @@ jobs:
           name: diffsinger-dataset-output
           path: src/outputs/
           retention-days: 7
-          
+        
