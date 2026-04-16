@@ -1,1 +1,51 @@
+name: UTAU to DiffSinger Converter
 
+on:
+  workflow_dispatch: # Permite que você ative a conversão manualmente pelo celular
+
+jobs:
+  build-and-convert:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv and Dependencies
+        run: |
+          pip install uv
+          uv pip install --system -r requirements.txt
+
+      - name: Download SOFA Models
+        shell: pwsh
+        run: |
+          # Criando pastas necessárias
+          mkdir -p src/ckpt
+          mkdir -p src/dictionaries
+          
+          # Baixando o modelo SOFA (Exemplo de link comum, substitua se necessário)
+          # Nota: Verifique se esses links estão ativos ou use links diretos do seu próprio drive
+          curl -L "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/step.100000.ckpt" -o src/ckpt/step.100000.ckpt
+          curl -L "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/japanese-extension-sofa.txt" -o src/dictionaries/japanese-extension-sofa.txt
+
+      - name: Run Conversion
+        shell: pwsh
+        run: |
+          # Substitua 'input_folder' pelo nome da pasta onde você subiu seu Voicebank
+          # Exemplo: Se sua pasta de áudios no GitHub se chama 'A3', use: python src/main.py A3
+          python src/main.py input_folder
+
+      - name: Upload Dataset
+        uses: actions/upload-artifact@v4
+        with:
+          name: diffsinger-dataset-output
+          path: src/outputs/
+          retention-days: 7
+          
