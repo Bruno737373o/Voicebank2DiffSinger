@@ -73,8 +73,8 @@ jobs:
       - name: Run Conversion
         shell: pwsh
         run: |
-          # O comando "echo 1" envia a resposta automaticamente para o prompt do script
-          echo "1" | python src/main.py "Kasane Teto SV"
+          # Envia "1" para o alinhador e "y" para a normalização
+          "1`ny" | python src/main.py "Kasane Teto SV"
 
       - name: Upload Dataset
         uses: actions/upload-artifact@v4
@@ -82,3 +82,4 @@ jobs:
           name: diffsinger-dataset-output
           path: src/outputs/
           retention-days: 7
+          
