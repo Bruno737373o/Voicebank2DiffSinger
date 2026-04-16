@@ -23,7 +23,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install uv
-          uv pip install --system -r requirements.txt
+          uv pip install --system -r requirements.txt requests
 
       - name: Auto-generate TXT from OTO.INI
         shell: python
@@ -32,16 +32,14 @@ jobs:
           import sys
           sys.stdout.reconfigure(encoding='utf-8')
 
-          # Certifique-se que o nome da pasta no seu GitHub é exatamente este:
           path = "Kasane Teto SV"
           oto_path = os.path.join(path, "oto.ini")
           
           if not os.path.exists(oto_path):
-              print(f"Erro: Pasta ou arquivo '{oto_path}' nao encontrado!")
+              print(f"Erro: Pasta '{path}' nao encontrada!")
               exit(1)
 
           files_content = {}
-          # Lê o OTO e limpa os aliases
           with open(oto_path, 'r', encoding='shift-jis', errors='ignore') as f:
               for line in f:
                   if '=' in line:
@@ -49,48 +47,48 @@ jobs:
                       filename = parts[0]
                       data = parts[1].split(',')
                       alias = data[0].strip()
-                      # Pega o fonema final (ex: "a あ" vira "あ")
                       syllable = alias.split(' ')[-1]
                       if filename not in files_content:
                           files_content[filename] = []
                       files_content[filename].append(syllable)
 
-          # Cria um .txt para cada .wav
           for filename, syllables in files_content.items():
               base_name = os.path.splitext(filename)[0]
               txt_path = os.path.join(path, f"{base_name}.txt")
               with open(txt_path, 'w', encoding='utf-8') as f:
                   f.write(" ".join(syllables))
-          print("Sucesso: Arquivos .txt gerados a partir do OTO.ini.")
+          print("Sucesso: Arquivos .txt gerados.")
 
-      - name: Download SOFA Models
-        shell: pwsh
+      - name: Download SOFA Models (Robust Method)
+        shell: python
         run: |
-          New-Item -ItemType Directory -Force -Path src/ckpt
-          New-Item -ItemType Directory -Force -Path src/dictionaries
-          $ProgressPreference = 'SilentlyContinue'
-          
-          Write-Host "Baixando modelos oficiais do SOFA..."
-          # Links diretos da release estável
-          curl.exe -L "https://github.com/qiuqiao/SOFA/releases/download/v0.0.1/step.100000.ckpt" -o "src/ckpt/step.100000.ckpt"
-          curl.exe -L "https://raw.githubusercontent.com/qiuqiao/SOFA/main/dictionaries/japanese-extension-sofa.txt" -o "src/dictionaries/japanese-extension-sofa.txt"
+          import requests
+          import os
 
-          # Validação: O arquivo .ckpt deve ter cerca de 65MB. Se for menor que 1MB, o download falhou.
-          $file = Get-Item "src/ckpt/step.100000.ckpt"
-          if ($file.Length -lt 1MB) {
-              Write-Error "Erro critico: O modelo .ckpt nao foi baixado corretamente (link quebrado ou erro de rede)."
-              exit 1
-          }
-          Write-Host "Download concluido com sucesso."
+          def download_file(url, dest):
+              print(f"Baixando: {url}")
+              os.makedirs(os.path.dirname(dest), exist_ok=True)
+              r = requests.get(url, allow_redirects=True, stream=True)
+              if r.status_code == 200:
+                  with open(dest, 'wb') as f:
+                      for chunk in r.iter_content(chunk_size=8192):
+                          f.write(chunk)
+                  print(f"Salvo em: {dest} ({os.path.getsize(dest)} bytes)")
+              else:
+                  print(f"Erro ao baixar {url}: Status {r.status_code}")
+                  exit(1)
+
+          # Links de backup e oficiais
+          ckpt_url = "https://github.com/qiuqiao/SOFA/releases/download/v0.0.1/step.100000.ckpt"
+          dict_url = "https://raw.githubusercontent.com/qiuqiao/SOFA/main/dictionaries/japanese-extension-sofa.txt"
+
+          download_file(ckpt_url, "src/ckpt/step.100000.ckpt")
+          download_file(dict_url, "src/dictionaries/japanese-extension-sofa.txt")
 
       - name: Run Conversion
         shell: pwsh
         run: |
-          # Respostas automáticas para o script:
-          # 1: Seleciona Alinhador SOFA
-          # y: Normalizar volume
-          # y: Cortar silêncios (Silence Trimming)
-          # y: Confirmação extra (se houver)
+          # Respostas: 1 (SOFA), y (Normalize), y (Trim), y (Confirm)
           "1`ny`ny`ny" | python src/main.py "Kasane Teto SV"
 
       - name: Upload Dataset
