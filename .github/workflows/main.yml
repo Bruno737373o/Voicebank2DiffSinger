@@ -1,4 +1,4 @@
-name: UTAU to DiffSinger (MakeDiffSinger Official)
+name: UTAU to DiffSinger (Dataset Tools Release)
 
 on:
   workflow_dispatch:
@@ -10,85 +10,67 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Dependencies
+      - name: Download and Extract Dataset Tools
         shell: pwsh
         run: |
-          python -m pip install --upgrade pip
-          pip install uv
-          # O MakeDiffSinger precisa dessas bibliotecas base
-          uv pip install --system -r requirements.txt requests tqdm
+          Write-Host "Baixando release do Dataset Tools..."
+          $Url = "https://github.com/openvpi/dataset-tools/releases/download/GAME-0330/dataset-tools-msvc2022-x64-2026-03-30-eccd43e.zip"
+          curl.exe -L $Url -o "tools.zip"
+          
+          Write-Host "Extraindo ferramentas..."
+          Expand-Archive -Path "tools.zip" -DestinationPath "bin"
+          
+          # Remove o zip para economizar espaço
+          Remove-Item "tools.zip"
 
-      - name: Auto-generate TXT from OTO.INI
+      - name: Auto-generate TXT for Aligner
         shell: python
         run: |
           import os
           import sys
           sys.stdout.reconfigure(encoding='utf-8')
 
-          # Pasta do banco de voz
+          # Caminho onde sua Teto está no repositório
           path = "Kasane Teto SV"
-          oto_path = os.path.join(path, "oto.ini")
           
-          if not os.path.exists(oto_path):
-              print(f"Erro: Arquivo '{oto_path}' nao encontrado!")
+          if not os.path.exists(path):
+              print(f"Erro: Pasta '{path}' nao encontrada!")
               exit(1)
 
+          # Gera os TXTs a partir do OTO.ini para o alinhador entender os áudios
+          oto_path = os.path.join(path, "oto.ini")
           with open(oto_path, 'r', encoding='shift-jis', errors='ignore') as f:
               for line in f:
                   if '=' in line:
                       parts = line.split('=')
                       filename = parts[0]
                       alias = parts[1].split(',')[0].strip()
-                      # Extrai o fonema (ex: "- あ" -> "あ")
                       phoneme = alias.split(' ')[-1]
                       
                       txt_name = os.path.splitext(filename)[0] + ".txt"
                       with open(os.path.join(path, txt_name), 'w', encoding='utf-8') as tf:
                           tf.write(phoneme)
-          print("Sucesso: Arquivos de transcricao (.txt) criados.")
+          print("Arquivos de transcrição gerados com sucesso.")
 
-      - name: Download Aligner Models
-        shell: python
-        run: |
-          import requests
-          import os
-
-          # O MakeDiffSinger geralmente procura os modelos em 'checkpoints' ou 'src/ckpt'
-          # Usaremos o modelo estável do ds_aligner hospedado no Hugging Face
-          files = {
-              "checkpoints/ds_aligner.ckpt": "https://huggingface.co/datasets/Kalm08/DiffSinger_Japanese_Base_Model/resolve/main/model_ckpt_steps_100000.ckpt",
-              "dictionaries/kana_jp.txt": "https://raw.githubusercontent.com/openvpi/MakeDiffSinger/main/dictionaries/kana_jp.txt"
-          }
-
-          for path, url in files.items():
-              os.makedirs(os.path.dirname(path), exist_ok=True)
-              print(f"Baixando {path}...")
-              r = requests.get(url, allow_redirects=True)
-              if r.status_code == 200:
-                  with open(path, 'wb') as f:
-                      f.write(r.content)
-              else:
-                  print(f"Erro ao baixar {url}")
-                  exit(1)
-
-      - name: Run MakeDiffSinger
+      - name: Run Processing
         shell: pwsh
         run: |
-          # No MakeDiffSinger, o comando costuma ser python main.py [caminho_da_pasta]
-          # Enviamos "1" e "y" para as perguntas de setup se elas aparecerem
-          "1`ny`ny`ny" | python main.py "Kasane Teto SV"
+          # Movemos a pasta da Teto para dentro da pasta 'bin' onde os executáveis estão
+          Move-Item -Path "Kasane Teto SV" -Destination "bin/"
+          
+          cd bin
+          
+          # Como este é um binário pré-compilado, chamamos o executável diretamente.
+          # Nota: O nome do executável pode variar (ex: dataset-tools.exe ou run.exe)
+          # Ajuste o nome abaixo conforme o que existe dentro do zip da release.
+          # Se houver prompts, o "1`ny`ny" continua funcionando.
+          "1`ny`ny`ny" | ./dataset-tools.exe "Kasane Teto SV"
 
-      - name: Upload Dataset
+      - name: Upload Processed Dataset
         uses: actions/upload-artifact@v4
         with:
           name: diffsinger-dataset-final
-          path: out/
+          # Ajuste o caminho conforme a pasta de saída gerada pela ferramenta (ex: bin/out)
+          path: bin/out/
           retention-days: 7
