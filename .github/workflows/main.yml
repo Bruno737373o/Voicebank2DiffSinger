@@ -73,8 +73,12 @@ jobs:
       - name: Run Conversion
         shell: pwsh
         run: |
-          # Envia "1" para o alinhador e "y" para a normalização
-          "1`ny" | python src/main.py "Kasane Teto SV"
+          # Respostas: 
+          # 1 (SOFA) 
+          # y (Normalizar Volume)
+          # y (Trim Silence)
+          # y (Caso haja uma 4ª pergunta de confirmação)
+          "1`ny`ny`ny" | python src/main.py "Kasane Teto SV"
 
       - name: Upload Dataset
         uses: actions/upload-artifact@v4
