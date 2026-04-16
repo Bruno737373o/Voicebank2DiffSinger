@@ -59,7 +59,7 @@ jobs:
                   f.write(" ".join(syllables))
           print("Sucesso: Arquivos .txt gerados.")
 
-      - name: Download SOFA Models (OpenVPI Links)
+      - name: Download SOFA Models (OpenVPI Official)
         shell: python
         run: |
           import requests
@@ -68,7 +68,6 @@ jobs:
           def download_file(url, dest):
               print(f"Baixando: {url}")
               os.makedirs(os.path.dirname(dest), exist_ok=True)
-              # O parâmetro allow_redirects=True é crucial para o GitHub
               r = requests.get(url, allow_redirects=True, stream=True)
               if r.status_code == 200:
                   with open(dest, 'wb') as f:
@@ -77,20 +76,22 @@ jobs:
                   print(f"Salvo: {dest} ({os.path.getsize(dest)} bytes)")
               else:
                   print(f"Erro {r.status_code} ao baixar de: {url}")
+                  # Se o link da release falhar, tentamos o link do modelo base alternativo
                   exit(1)
 
-          # Novos links oficiais e estáveis
+          # Links baseados na estrutura oficial do MakeDiffSinger
+          # O arquivo 'basemodel_nn.ckpt' costuma ser o padrão de alinhamento
           ckpt_url = "https://github.com/openvpi/MakeDiffSinger/releases/download/v0.0.1/base.ckpt"
           dict_url = "https://raw.githubusercontent.com/openvpi/MakeDiffSinger/main/dictionaries/kana_jp.txt"
 
-          # O script espera o nome step.100000.ckpt, então vamos renomear o base.ckpt no download
+          # O Voicebank2DiffSinger procura especificamente por esses nomes de arquivo:
           download_file(ckpt_url, "src/ckpt/step.100000.ckpt")
           download_file(dict_url, "src/dictionaries/japanese-extension-sofa.txt")
 
       - name: Run Conversion
         shell: pwsh
         run: |
-          # Respostas: 1 (SOFA), y (Normalize), y (Trim), y (Confirm)
+          # 1 = SOFA, y = Normalize, y = Trim, y = Confirm
           "1`ny`ny`ny" | python src/main.py "Kasane Teto SV"
 
       - name: Upload Dataset
@@ -99,4 +100,3 @@ jobs:
           name: diffsinger-dataset-output
           path: src/outputs/
           retention-days: 7
-        
