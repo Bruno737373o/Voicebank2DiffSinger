@@ -30,8 +30,6 @@ jobs:
         run: |
           import os
           import sys
-
-          # Força o console a aceitar UTF-8 para evitar erro de caracteres japoneses
           sys.stdout.reconfigure(encoding='utf-8')
 
           path = "Kasane Teto SV"
@@ -42,8 +40,6 @@ jobs:
               exit(1)
 
           files_content = {}
-          
-          # Lendo o OTO.INI
           with open(oto_path, 'r', encoding='shift-jis', errors='ignore') as f:
               for line in f:
                   if '=' in line:
@@ -51,30 +47,31 @@ jobs:
                       filename = parts[0]
                       data = parts[1].split(',')
                       alias = data[0].strip()
-                      
-                      # Pega apenas a silaba final do alias
                       syllable = alias.split(' ')[-1]
-                      
                       if filename not in files_content:
                           files_content[filename] = []
                       files_content[filename].append(syllable)
 
-          # Criando os arquivos .txt
           for filename, syllables in files_content.items():
               txt_name = os.path.splitext(filename)[0] + ".txt"
               txt_path = os.path.join(path, txt_name)
               with open(txt_path, 'w', encoding='utf-8') as f:
                   f.write(" ".join(syllables))
-          
-          print("Sucesso: Todos os arquivos .txt foram gerados.")
+          print("Sucesso: Arquivos .txt gerados.")
 
       - name: Download SOFA Models
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path src/ckpt
           New-Item -ItemType Directory -Force -Path src/dictionaries
-          Invoke-WebRequest -Uri "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/step.100000.ckpt" -OutFile "src/ckpt/step.100000.ckpt"
-          Invoke-WebRequest -Uri "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/japanese-extension-sofa.txt" -OutFile "src/dictionaries/japanese-extension-sofa.txt"
+          
+          $ProgressPreference = 'SilentlyContinue' # Acelera o download ocultando a barra de progresso
+          
+          Write-Host "Baixando checkpoint do SOFA..."
+          curl.exe -L "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/step.100000.ckpt" -o "src/ckpt/step.100000.ckpt"
+          
+          Write-Host "Baixando dicionario japonês..."
+          curl.exe -L "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/japanese-extension-sofa.txt" -o "src/dictionaries/japanese-extension-sofa.txt"
 
       - name: Run Conversion
         shell: pwsh
