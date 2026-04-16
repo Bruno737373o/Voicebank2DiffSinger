@@ -32,14 +32,16 @@ jobs:
           import sys
           sys.stdout.reconfigure(encoding='utf-8')
 
+          # Certifique-se que o nome da pasta no seu GitHub é exatamente este:
           path = "Kasane Teto SV"
           oto_path = os.path.join(path, "oto.ini")
           
           if not os.path.exists(oto_path):
-              print("Erro: Arquivo oto.ini nao encontrado!")
+              print(f"Erro: Pasta ou arquivo '{oto_path}' nao encontrado!")
               exit(1)
 
           files_content = {}
+          # Lê o OTO e limpa os aliases
           with open(oto_path, 'r', encoding='shift-jis', errors='ignore') as f:
               for line in f:
                   if '=' in line:
@@ -47,17 +49,19 @@ jobs:
                       filename = parts[0]
                       data = parts[1].split(',')
                       alias = data[0].strip()
+                      # Pega o fonema final (ex: "a あ" vira "あ")
                       syllable = alias.split(' ')[-1]
                       if filename not in files_content:
                           files_content[filename] = []
                       files_content[filename].append(syllable)
 
+          # Cria um .txt para cada .wav
           for filename, syllables in files_content.items():
-              txt_name = os.path.splitext(filename)[0] + ".txt"
-              txt_path = os.path.join(path, txt_name)
+              base_name = os.path.splitext(filename)[0]
+              txt_path = os.path.join(path, f"{base_name}.txt")
               with open(txt_path, 'w', encoding='utf-8') as f:
                   f.write(" ".join(syllables))
-          print("Sucesso: Arquivos .txt gerados.")
+          print("Sucesso: Arquivos .txt gerados a partir do OTO.ini.")
 
       - name: Download SOFA Models
         shell: pwsh
@@ -66,18 +70,27 @@ jobs:
           New-Item -ItemType Directory -Force -Path src/dictionaries
           $ProgressPreference = 'SilentlyContinue'
           
-          Write-Host "Baixando modelos SOFA..."
-          curl.exe -L "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/step.100000.ckpt" -o "src/ckpt/step.100000.ckpt"
-          curl.exe -L "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/japanese-extension-sofa.txt" -o "src/dictionaries/japanese-extension-sofa.txt"
+          Write-Host "Baixando modelos oficiais do SOFA..."
+          # Links diretos da release estável
+          curl.exe -L "https://github.com/qiuqiao/SOFA/releases/download/v0.0.1/step.100000.ckpt" -o "src/ckpt/step.100000.ckpt"
+          curl.exe -L "https://raw.githubusercontent.com/qiuqiao/SOFA/main/dictionaries/japanese-extension-sofa.txt" -o "src/dictionaries/japanese-extension-sofa.txt"
+
+          # Validação: O arquivo .ckpt deve ter cerca de 65MB. Se for menor que 1MB, o download falhou.
+          $file = Get-Item "src/ckpt/step.100000.ckpt"
+          if ($file.Length -lt 1MB) {
+              Write-Error "Erro critico: O modelo .ckpt nao foi baixado corretamente (link quebrado ou erro de rede)."
+              exit 1
+          }
+          Write-Host "Download concluido com sucesso."
 
       - name: Run Conversion
         shell: pwsh
         run: |
-          # Respostas: 
-          # 1 (SOFA) 
-          # y (Normalizar Volume)
-          # y (Trim Silence)
-          # y (Caso haja uma 4ª pergunta de confirmação)
+          # Respostas automáticas para o script:
+          # 1: Seleciona Alinhador SOFA
+          # y: Normalizar volume
+          # y: Cortar silêncios (Silence Trimming)
+          # y: Confirmação extra (se houver)
           "1`ny`ny`ny" | python src/main.py "Kasane Teto SV"
 
       - name: Upload Dataset
