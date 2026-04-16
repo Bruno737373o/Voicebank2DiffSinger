@@ -1,7 +1,7 @@
-name: UTAU to DiffSinger Converter
+name: UTAU to DiffSinger Auto-Converter
 
 on:
-  workflow_dispatch: # Permite que você ative a conversão manualmente pelo celular
+  workflow_dispatch:
 
 jobs:
   build-and-convert:
@@ -18,29 +18,62 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install uv and Dependencies
+      - name: Install Dependencies
+        shell: pwsh
         run: |
+          python -m pip install --upgrade pip
           pip install uv
           uv pip install --system -r requirements.txt
+
+      - name: Auto-generate TXT from OTO.INI
+        shell: python
+        run: |
+          import os
+          import re
+
+          path = "Kasane Teto SV"
+          oto_path = os.path.join(path, "oto.ini")
+          
+          if not os.path.exists(oto_path):
+              print("Erro: Arquivo oto.ini não encontrado!")
+              exit(1)
+
+          files_content = {}
+          
+          with open(oto_path, 'r', encoding='shift-jis', errors='ignore') as f:
+              for line in f:
+                  if '=' in line:
+                      parts = line.split('=')
+                      filename = parts[0]
+                      data = parts[1].split(',')
+                      alias = data[0].strip()
+                      
+                      # Limpa o alias (remove "a ", "- ", etc para pegar só a sílaba)
+                      syllable = alias.split(' ')[-1]
+                      
+                      if filename not in files_content:
+                          files_content[filename] = []
+                      files_content[filename].append(syllable)
+
+          for filename, syllables in files_content.items():
+              txt_name = os.path.splitext(filename)[0] + ".txt"
+              txt_path = os.path.join(path, txt_name)
+              with open(txt_path, 'w', encoding='utf-8') as f:
+                  f.write(" ".join(syllables))
+              print(f"Criado: {txt_name}")
 
       - name: Download SOFA Models
         shell: pwsh
         run: |
-          # Criando pastas necessárias
-          mkdir -p src/ckpt
-          mkdir -p src/dictionaries
-          
-          # Baixando o modelo SOFA (Exemplo de link comum, substitua se necessário)
-          # Nota: Verifique se esses links estão ativos ou use links diretos do seu próprio drive
-          curl -L "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/step.100000.ckpt" -o src/ckpt/step.100000.ckpt
-          curl -L "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/japanese-extension-sofa.txt" -o src/dictionaries/japanese-extension-sofa.txt
+          New-Item -ItemType Directory -Force -Path src/ckpt
+          New-Item -ItemType Directory -Force -Path src/dictionaries
+          Invoke-WebRequest -Uri "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/step.100000.ckpt" -OutFile "src/ckpt/step.100000.ckpt"
+          Invoke-WebRequest -Uri "https://github.com/Lqm1/Voicebank2DiffSinger/releases/download/v0.0.1/japanese-extension-sofa.txt" -OutFile "src/dictionaries/japanese-extension-sofa.txt"
 
       - name: Run Conversion
         shell: pwsh
         run: |
-          # Substitua 'input_folder' pelo nome da pasta onde você subiu seu Voicebank
-          # Exemplo: Se sua pasta de áudios no GitHub se chama 'A3', use: python src/main.py A3
-          python src/main.py input_folder
+          python src/main.py "Kasane Teto SV"
 
       - name: Upload Dataset
         uses: actions/upload-artifact@v4
@@ -48,4 +81,3 @@ jobs:
           name: diffsinger-dataset-output
           path: src/outputs/
           retention-days: 7
-          
